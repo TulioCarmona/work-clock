@@ -1,2 +1,2 @@
 # work-clock
-A simple clock app taht shows you the reamin work hours.
+A simple clock app that shows you the remaining hours of work for the day.
