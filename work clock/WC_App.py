@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import time
 import customtkinter as ctk
 from PIL import Image
+import json
 
 class App(ctk.CTk):
     def __init__(self):
@@ -20,25 +21,23 @@ class App(ctk.CTk):
         size=(20, 20)
         )
 
-        data = self.load_data()
-        self._data = []
-        for x in data:
-            self._data.append(x.replace("\n", ""))
+        with open("config.json", "r") as f:
+            self.data = json.load(f)
+
         self.date = datetime.now().strftime("%d.%m.%Y")
-        if self._data[2] != self.date:
+        if self.data["last_run_date"] != self.date:
             box = ctk.CTkInputDialog(text="Enter work start time")
             _s_time = box.get_input()
             self.start_time = datetime.strptime(_s_time, "%H:%M")
-            data[2] = self.date + "\n"
-            data[3] = _s_time + "\n"
-            data[4] = datetime.strftime(self.start_time + timedelta(hours=int(data[1])), "%H:%M")
-            f = open("data.txt",'w')
-            f.writelines(data)
-            f.close()
+            self.data["last_run_date"] = self.date
+            self.data["start_time"] = datetime.strftime(self.start_time, "%H:%M")
+            self.data["end_time"] = datetime.strftime(self.start_time + timedelta(hours=int(self.data["work_hours"])), "%H:%M")
+            with open("config.json", "w") as f:
+                json.dump(self.data, f, indent=4)
         else:
-            self.start_time = datetime.strptime(self._data[3], "%H:%M")
+            self.start_time = datetime.strptime(self.data["start_time"], "%H:%M")
         print(self.start_time)
-        self.end_time = self.start_time + timedelta(hours=int(self._data[1]))
+        self.end_time = self.start_time + timedelta(hours=int(self.data["work_hours"]))
         
         #Settings button
         self.setting_Btn = ctk.CTkButton(self, text="", image=gear_image, width=20, height=20, fg_color="transparent", corner_radius=8, command=self.button_callback)
@@ -48,7 +47,7 @@ class App(ctk.CTk):
         self.clock_Lbl.grid(row=1, column=0, padx=0, pady=0, sticky="ew", columnspan=3)
         #Grettings
         self.greetings_Lbl = ctk.CTkLabel(self, text="", font=("Old English Text MT", 30), text_color="#FFFFFF")
-        self.greetings_Lbl.configure(text="Greetings " + self._data[0])
+        self.greetings_Lbl.configure(text="Greetings " + self.data["user_name"])
         self.greetings_Lbl.grid(row=2, column=0, padx=0, pady=0, sticky="ew", columnspan=3)
         #Work time
         self.remainingTime_Lbl = ctk.CTkLabel(self, text="", font=("Old English Text MT", 30), text_color="#FFFFFF")
@@ -83,7 +82,7 @@ class App(ctk.CTk):
         #remaining_time = self.end_time - timedelta(hours=datetime.now().hour, minutes=datetime.now().minute)
         elapsed_time = datetime.now() - timedelta(hours=self.start_time.hour, minutes=self.start_time.minute)
         #print(elapsed_time)
-        total_min = 60 * int(self._data[1])
+        total_min = 60 * int(self.data["work_hours"])
         #remain_min = int(remaining_time.hour)*60 + int(remaining_time.minute)
         elapsed_min = elapsed_time.hour*60 + elapsed_time.minute
         #progress = 100 - int(remain_min*100/total_min)
