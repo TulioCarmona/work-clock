@@ -61,7 +61,7 @@ class App(ctk.CTk):
         self.remainingTime_Lbl = ctk.CTkLabel(self, text="", font=("Old English Text MT", 30), text_color="#FFFFFF")
         self.remainingTime_Lbl.grid(row=3, column=0, padx=0, pady=0, sticky="ew", columnspan=3)
         #ProgresssBar
-        self.time_PB = ctk.CTkProgressBar(self, height=15, corner_radius=7, progress_color="#680000", orientation="horizontal")
+        self.time_PB = ctk.CTkProgressBar(self, height=15, corner_radius=8, progress_color="#680000", orientation="horizontal")
         self.time_PB.grid(row=4, column=0, padx=(15,15), pady=(5,5), sticky="ew", columnspan=3)
         self.time_PB.set(0) #Initial value 0-1
         #
@@ -110,27 +110,55 @@ class SettingsWindow(ctk.CTkToplevel):
         #self.transient(master) # keeps it linked to main window
         self.grab_set() #blocks interaction with main window
 
+        #load data
+        BASE_DIR = Path(__file__).resolve().parent
+        self.CONFIG_FILE = BASE_DIR / "config.json"
+        with open(self.CONFIG_FILE, "r") as f:
+            self.data = json.load(f)
+        # Load icon
+        b_img_path = Path("icons") / "dark-drop.png"
+        w_img_path = Path("icons") / "light-drop.png"
+        self.drop_image = ctk.CTkImage(
+        light_image=Image.open(w_img_path),
+        dark_image=Image.open(b_img_path),
+        size=(20, 20)
+        )
+
+        #Name
         self.name_Lbl = ctk.CTkLabel(self, text="Name:", text_color="#FFFFFF" )
         self.name_Lbl.grid(row=0, column=0, padx=0, pady=0, sticky="w", columnspan=3)
-        self.name_Entry = ctk.CTkEntry(self, placeholder_text="Your name")
+        self.name_Entry = ctk.CTkEntry(self, placeholder_text=self.data["user_name"])
         self.name_Entry.grid(row=1, column=0, padx=(5,5), sticky="ew", columnspan=3)
-
+        #Work hours
         self.hours_Lbl = ctk.CTkLabel(self, text="Daily work hours:", text_color="#FFFFFF" )
         self.hours_Lbl.grid(row=2, column=0, padx=0, pady=0, sticky="w", columnspan=3)
-        self.hours_Entry = ctk.CTkEntry(self, placeholder_text="")
+        self.hours_Entry = ctk.CTkEntry(self, placeholder_text=self.data["work_hours"])
         self.hours_Entry.grid(row=3, column=0, padx=(5,5), sticky="ew", columnspan=3)
-
+        #Start time
+        self.start_time_Lbl = ctk.CTkLabel(self, text="Start time:")
+        self.start_time_Lbl.grid(row=4, column=0, padx=0, sticky="w", columnspan=3)
+        self.start_time_Entry = ctk.CTkEntry(self, placeholder_text=self.data["start_time"])
+        self.start_time_Entry.grid(row=5, column=0, padx=(5,5), sticky="ew", columnspan=3)
+        #End time
+        self.end_time_Lbl = ctk.CTkLabel(self, text="End time:")
+        self.end_time_Lbl.grid(row=6, column=0, padx=0, sticky="w", columnspan=3)
+        self.end_time_Entry = ctk.CTkEntry(self, placeholder_text=self.data["end_time"])
+        self.end_time_Entry.grid(row=7, column=0, padx=(5,5), sticky="ew", columnspan=3)
+        #Appearance
         self.look_Lbl = ctk.CTkLabel(self, text="Dark mode:", height=20,)
-        self.look_Lbl.grid(row=4, column=0, sticky="w", columnspan=2)
+        self.look_Lbl.grid(row=8, column=0, pady=(5,5), sticky="w", columnspan=2)
         self.switch_var = ctk.IntVar(value=1) #default switch state
-        self.look_swt = ctk.CTkSwitch(self, text="", command=self.swt_theme_fnc, variable=self.switch_var, onvalue=1, offvalue=0)
-        self.look_swt.grid(row=4, column=2, sticky="e")
+        #self.look_swt = ctk.CTkSwitch(self, text="", command=self.swt_theme_fnc, variable=self.switch_var, onvalue=1, offvalue=0,
+        #                              switch_width=40, corner_radius=20, progress_color="#680000")
+        #self.look_swt.grid(row=8, column=2, pady=(5,5), sticky="e")
+        self.look_Btn = ctk.CTkButton(self, text="", image=self.drop_image, width=30, height=20, fg_color="transparent",corner_radius=10, command=self.swt_theme_fnc)
+        self.look_Btn.grid(row=8, column=2, padx=(5,5), pady=(5,5), sticky="ew")
 
         #self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
-        self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#680000", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
-        self.ok_Btn.grid(row=5, column=1, padx=10, pady=0, sticky="ew")
-        self.cancel_Btn = ctk.CTkButton(self, text="Cancel", width=40, height=30, fg_color="#680000", corner_radius=15, text_color="#FFFFFF", command=self.cancel_Callback)
-        self.cancel_Btn.grid(row=5, column=2, padx=5, pady=0, sticky="ew")
+        self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#680000", corner_radius=20, text_color="#FFFFFF", command=self.set_Callback)
+        self.ok_Btn.grid(row=9, column=1, padx=10, pady=0, sticky="ew")
+        self.cancel_Btn = ctk.CTkButton(self, text="Cancel", width=40, height=30, fg_color="#680000", corner_radius=20, text_color="#FFFFFF", command=self.cancel_Callback)
+        self.cancel_Btn.grid(row=9, column=2, padx=5, pady=0, sticky="ew")
     
     def set_Callback(self):
         name = self.name_Entry.get()
@@ -144,6 +172,8 @@ class SettingsWindow(ctk.CTkToplevel):
         pass
 
     def swt_theme_fnc(self):
+        self._set_appearance_mode("light")
+        self.look_Btn.configure(image=self.drop_image)
         pass
 
 app = App()
