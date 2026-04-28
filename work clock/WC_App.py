@@ -4,6 +4,7 @@ import time
 import customtkinter as ctk
 from PIL import Image
 import json
+from pathlib import Path
 
 class App(ctk.CTk):
     def __init__(self):
@@ -14,16 +15,21 @@ class App(ctk.CTk):
         self.grid_columnconfigure((0, 1, 2), weight=1)
         #self.grid_rowconfigure(0, weight=1)
 
+        #Load path
+        BASE_DIR = Path(__file__).resolve().parent
+        self.CONFIG_FILE = BASE_DIR / "config.json"
+        #self.ICONS_DIR = BASE_DIR / "icons"
+
         # Load icon
         b_img_path = Path("icons") / "Gear-icon-black.png"
         w_img_path = Path("icons") / "Gear-icon-white.png"
-        gear_image = ctk.CTkImage(
+        self.gear_image = ctk.CTkImage(
         light_image=Image.open(b_img_path),
         dark_image=Image.open(w_img_path),
         size=(20, 20)
         )
 
-        with open("config.json", "r") as f:
+        with open(self.CONFIG_FILE, "r") as f:
             self.data = json.load(f)
 
         self.date = datetime.now().strftime("%d.%m.%Y")
@@ -34,7 +40,7 @@ class App(ctk.CTk):
             self.data["last_run_date"] = self.date
             self.data["start_time"] = datetime.strftime(self.start_time, "%H:%M")
             self.data["end_time"] = datetime.strftime(self.start_time + timedelta(hours=int(self.data["work_hours"])), "%H:%M")
-            with open("config.json", "w") as f:
+            with open(self.CONFIG_FILE, "w") as f:
                 json.dump(self.data, f, indent=4)
         else:
             self.start_time = datetime.strptime(self.data["start_time"], "%H:%M")
@@ -42,7 +48,7 @@ class App(ctk.CTk):
         self.end_time = self.start_time + timedelta(hours=int(self.data["work_hours"]))
         
         #Settings button
-        self.setting_Btn = ctk.CTkButton(self, text="", image=gear_image, width=20, height=20, fg_color="transparent", corner_radius=8, command=self.button_callback)
+        self.setting_Btn = ctk.CTkButton(self, text="", image=self.gear_image, width=20, height=20, fg_color="transparent", corner_radius=8, command=self.button_callback)
         self.setting_Btn.grid(row=0, column=0, padx=0, pady=0, sticky="w")
         #Big Clock
         self.clock_Lbl = ctk.CTkLabel(self, text="", font=("Old English Text MT", 60))
@@ -120,7 +126,7 @@ class SettingsWindow(ctk.CTkToplevel):
         self.look_swt = ctk.CTkSwitch(self, text="", command=self.swt_theme_fnc, variable=self.switch_var, onvalue=1, offvalue=0)
         self.look_swt.grid(row=4, column=2, sticky="e")
 
-        #self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback) #purple button
+        #self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
         self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#680000", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
         self.ok_Btn.grid(row=5, column=1, padx=10, pady=0, sticky="ew")
         self.cancel_Btn = ctk.CTkButton(self, text="Cancel", width=40, height=30, fg_color="#680000", corner_radius=15, text_color="#FFFFFF", command=self.cancel_Callback)
