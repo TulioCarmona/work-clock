@@ -15,9 +15,11 @@ class App(ctk.CTk):
         #self.grid_rowconfigure(0, weight=1)
 
         # Load icon
+        b_img_path = Path("icons") / "Gear-icon-black.png"
+        w_img_path = Path("icons") / "Gear-icon-white.png"
         gear_image = ctk.CTkImage(
-        light_image=Image.open("icons\Gear-icon-black.png"),
-        dark_image=Image.open("icons\Gear-icon-white.png"),
+        light_image=Image.open(b_img_path),
+        dark_image=Image.open(w_img_path),
         size=(20, 20)
         )
 
