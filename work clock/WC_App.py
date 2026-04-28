@@ -118,9 +118,10 @@ class SettingsWindow(ctk.CTkToplevel):
         self.look_swt = ctk.CTkSwitch(self, text="", command=self.swt_theme_fnc, variable=self.switch_var, onvalue=1, offvalue=0)
         self.look_swt.grid(row=4, column=2, sticky="e")
 
-        self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
+        #self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback) #purple button
+        self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#680000", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
         self.ok_Btn.grid(row=5, column=1, padx=10, pady=0, sticky="ew")
-        self.cancel_Btn = ctk.CTkButton(self, text="Cancel", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.cancel_Callback)
+        self.cancel_Btn = ctk.CTkButton(self, text="Cancel", width=40, height=30, fg_color="#680000", corner_radius=15, text_color="#FFFFFF", command=self.cancel_Callback)
         self.cancel_Btn.grid(row=5, column=2, padx=5, pady=0, sticky="ew")
     
     def set_Callback(self):
