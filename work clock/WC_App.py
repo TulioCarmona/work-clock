@@ -66,23 +66,10 @@ class App(ctk.CTk):
         self.time_PB.set(0) #Initial value 0-1
         #
         self.update_time()
-    
-    def load_data(self):
-        try:
-            f = open("data.txt")
-            data = f.readlines()
-            f.close()
-        except:
-            print("Error Loading data.\nPelase enter info")
-            f = open("data.txt", 'x')
-            data = ['name\n','9\n','22.04.2026\n','8:00\n','17:00']
-            f.write(data)
-            f.close
-        return data
         
     def button_callback(self):
-        print("button pressed")
         SettingsWindow(self)
+        print("window closed...")
         
     
     def update_time(self):
@@ -105,10 +92,11 @@ class SettingsWindow(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__(master)
         self.title("Settings")
-        self.geometry("250x300")
-        self.grid_columnconfigure((0,1,2), weight=1)
+        #self.geometry("230x300")
+        self.grid_columnconfigure((0,1,2,3), weight=1)
         #self.transient(master) # keeps it linked to main window
         self.grab_set() #blocks interaction with main window
+        self.resizable(False, False)
 
         #load data
         BASE_DIR = Path(__file__).resolve().parent
@@ -126,24 +114,37 @@ class SettingsWindow(ctk.CTkToplevel):
 
         #Name
         self.name_Lbl = ctk.CTkLabel(self, text="Name:", text_color="#FFFFFF" )
-        self.name_Lbl.grid(row=0, column=0, padx=0, pady=0, sticky="w", columnspan=3)
-        self.name_Entry = ctk.CTkEntry(self, placeholder_text=self.data["user_name"])
-        self.name_Entry.grid(row=1, column=0, padx=(5,5), sticky="ew", columnspan=3)
+        self.name_Lbl.grid(row=0, column=0, padx=5, pady=0, sticky="w", columnspan=3)
+        self.name_Entry = ctk.CTkEntry(self, placeholder_text=self.data["user_name"], height=30)
+        self.name_Entry.grid(row=1, column=0, padx=(5,5), sticky="ew", columnspan=4)
         #Work hours
-        self.hours_Lbl = ctk.CTkLabel(self, text="Daily work hours:", text_color="#FFFFFF" )
+        self.hours_Lbl = ctk.CTkLabel(self, text="Daily work hours:", text_color="#FFFFFF")
         self.hours_Lbl.grid(row=2, column=0, padx=0, pady=0, sticky="w", columnspan=3)
-        self.hours_Entry = ctk.CTkEntry(self, placeholder_text=self.data["work_hours"])
-        self.hours_Entry.grid(row=3, column=0, padx=(5,5), sticky="ew", columnspan=3)
+        self.hours_Entry = ctk.CTkEntry(self, placeholder_text=self.data["work_hours"], height=30, width=50)
+        self.hours_Entry.grid(row=3, column=0, padx=(5,5), sticky="ew")
+        self.mode_var = ctk.IntVar(value=0)
+        self.hours_cbx = ctk.CTkCheckBox(self, text="Use fix number of hours", variable=self.mode_var, onvalue=1, offvalue=0,
+                                         checkbox_height=20, checkbox_width=20, border_width=2, fg_color="#680000", hover_color="#680000", 
+                                         command=self.cbx_callback)
+        self.hours_cbx.grid(row=3, column=2,  padx=(5,5), sticky="ew", columnspan=2)
         #Start time
         self.start_time_Lbl = ctk.CTkLabel(self, text="Start time:")
         self.start_time_Lbl.grid(row=4, column=0, padx=0, sticky="w", columnspan=3)
-        self.start_time_Entry = ctk.CTkEntry(self, placeholder_text=self.data["start_time"])
-        self.start_time_Entry.grid(row=5, column=0, padx=(5,5), sticky="ew", columnspan=3)
+        self.start_h_Entry = ctk.CTkEntry(self, placeholder_text=self.data["start_time"].split(":")[0], width=50, height=30)
+        self.start_h_Entry.grid(row=5, column=0, padx=(5,5), sticky="ew")
+        self.lbl1 = ctk.CTkLabel(self,text=":", height=30, anchor="center", font=('default',25))
+        self.lbl1.grid(row=5, column=1, padx=(2,2))
+        self.start_m_Entry = ctk.CTkEntry(self, placeholder_text=self.data["start_time"].split(":")[1], width=50, height=30)
+        self.start_m_Entry.grid(row=5, column=2, padx=(5,5), sticky="ew")
         #End time
         self.end_time_Lbl = ctk.CTkLabel(self, text="End time:")
         self.end_time_Lbl.grid(row=6, column=0, padx=0, sticky="w", columnspan=3)
-        self.end_time_Entry = ctk.CTkEntry(self, placeholder_text=self.data["end_time"])
-        self.end_time_Entry.grid(row=7, column=0, padx=(5,5), sticky="ew", columnspan=3)
+        self.end_h_Entry = ctk.CTkEntry(self, placeholder_text=self.data["end_time"].split(":")[0], width=50, height=30)
+        self.end_h_Entry.grid(row=7, column=0, padx=(5,5), sticky="ew")
+        self.lbl2 = ctk.CTkLabel(self,text=":", height=30, anchor="center", font=('default',25))
+        self.lbl2.grid(row=7, column=1, padx=(2,2))
+        self.end_m_Entry = ctk.CTkEntry(self, placeholder_text=self.data["end_time"].split(":")[1], width=50, height=30)
+        self.end_m_Entry.grid(row=7, column=2, padx=(5,5), sticky="ew")
         #Appearance
         self.look_Lbl = ctk.CTkLabel(self, text="Dark mode:", height=20,)
         self.look_Lbl.grid(row=8, column=0, pady=(5,5), sticky="w", columnspan=2)
@@ -156,25 +157,64 @@ class SettingsWindow(ctk.CTkToplevel):
 
         #self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#6449DD", corner_radius=15, text_color="#FFFFFF", command=self.set_Callback)
         self.ok_Btn = ctk.CTkButton(self, text="Ok", width=40, height=30, fg_color="#680000", corner_radius=20, text_color="#FFFFFF", command=self.set_Callback)
-        self.ok_Btn.grid(row=9, column=1, padx=10, pady=0, sticky="ew")
+        self.ok_Btn.grid(row=9, column=2, padx=10, pady=(0,5), sticky="ew")
         self.cancel_Btn = ctk.CTkButton(self, text="Cancel", width=40, height=30, fg_color="#680000", corner_radius=20, text_color="#FFFFFF", command=self.cancel_Callback)
-        self.cancel_Btn.grid(row=9, column=2, padx=5, pady=0, sticky="ew")
+        self.cancel_Btn.grid(row=9, column=3, padx=5, pady=(0,5), sticky="ew")
     
     def set_Callback(self):
         name = self.name_Entry.get()
-        self.name_Entry.delete(0, END)
+        work_hours = self.hours_Entry.get()
+        start_time_h = self.start_h_Entry.get()
+        start_time_m = self.start_m_Entry.get()
+        end_time_h = self.end_h_Entry.get()
+        end_time_m = self.end_m_Entry.get()
+        mode = self.mode_var.get()
+        start_time = start_time_h + ":" + start_time_m
+        end_time = end_time_h + ":" + end_time_m
+        
         if name != "":
-            print(name)
-        else:
-            print("No name")
+            self.data["user_name"] = name
+        if work_hours != '' and int(work_hours) >= 0:
+            self.data["work_hours"] = int(work_hours)
+        if start_time != ":":
+            try:
+                st = datetime.strptime(start_time, "%H:%M")
+                self.data["start_time"] = datetime.strftime(st, "%H:%M")
+            except:
+                pass
+        if end_time != ":":
+            try:
+                et = datetime.strptime(end_time, "%H:%M")
+                self.data["end_time"] = datetime.strftime(et, "%H:%M")
+            except:
+                pass
+        self.data["time_mode"] = mode
+
+        with open(self.CONFIG_FILE, "w") as f:
+            json.dump(self.data, f, indent=4)
+        
+        self.destroy()
     
     def cancel_Callback(self):
-        pass
+        self.destroy()
+    
+    def cbx_callback(self):
+        if self.mode_var.get() == 1:
+            self.end_h_Entry.configure(state="disabled")
+            self.end_m_Entry.configure(state="disabled")
+        else:
+            self.end_h_Entry.configure(state="normal")
+            self.end_m_Entry.configure(state="normal")
 
     def swt_theme_fnc(self):
-        self._set_appearance_mode("light")
-        self.look_Btn.configure(image=self.drop_image)
-        pass
+        theme = self._get_appearance_mode() # 'dark' or 'light'
+        if theme == "dark":
+            self._set_appearance_mode("light")
+            #self.look_Btn.configure(image=self.drop_image)
+        else:
+            self._set_appearance_mode("dark")
+            #self.look_Btn.configure(image=self.drop_image)
+        
 
 app = App()
 app.mainloop()

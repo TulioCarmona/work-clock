@@ -1,7 +1,8 @@
 {
-    "user_name": "Raven",
-    "work_hours": 9,
-    "last_run_date": "28.04.2026",
-    "start_time": "08:00",
-    "end_time": "17:00"
+    "user_name": "Human",
+    "work_hours": 7,
+    "last_run_date": "08.05.2026",
+    "start_time": "06:00",
+    "end_time": "14:30",
+    "time_mode": 0
 }
