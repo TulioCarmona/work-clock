@@ -36,7 +36,7 @@ def load_fonts() -> None:
 def greeting() -> str:
     h = datetime.now().hour
     if   5  <= h < 12: return "Good Morning"
-    elif 12 <= h < 14: return "Good Day"
+    elif 12 <= h < 14: return "Hello"
     elif 14 <= h < 19: return "Good Afternoon"
     elif 19 <= h < 22: return "Good Evening"
     else:              return "Good Night"
