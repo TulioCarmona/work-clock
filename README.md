@@ -28,6 +28,14 @@ python run.py
 
 After setup, the app runs fully offline and portably. You can copy the whole folder to any machine that has Python, and it will work without any extra installation steps.
 
+## Personalization
+
+It is possible to tweak the appearance of the widget, the settings menu allows the user to perform the following modifications: 
+
+- Change between `dark` and `light` theme.
+- Change the transparency of the background of the widget so it is easy to read, depending on the content of your screen.
+- Choose different fonts for the clock and greetings from the ones already included, or download a different font `.ttf` file and move it to the `fonts` directory. The widget will automatically load the fonts the next time it is open, and the new font will appear in the settings menu. 
+
 ## Folder structure
 
 ```
