@@ -2,9 +2,17 @@
     "user_name": "Human",
     "work_hours": 7,
     "last_run_date": "08.05.2026",
-    "start_time": "07:00",
-    "end_time": "14:00",
+    "start_time": "06:00",
+    "end_time": "13:00",
     "time_mode": 0,
-    "opacity": 0.85,
-    "theme": "dark"
+    "opacity": 0.32,
+    "theme": "dark",
+    "font": "UnifrakturCook",
+    "work_days": [
+        1,
+        2,
+        3,
+        4,
+        5
+    ]
 }
