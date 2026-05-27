@@ -8,29 +8,40 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QProgressBar,
     QPushButton, QDialog, QLineEdit, QCheckBox,
     QSlider, QGridLayout, QHBoxLayout, QVBoxLayout,
+    QComboBox, QMenu,
 )
 from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSignal
-from PyQt6.QtGui import QPainter, QColor, QBrush, QFont, QFontDatabase, QIcon, QPixmap
+from PyQt6.QtGui import (
+    QPainter, QColor, QBrush, QFont, QFontDatabase,
+    QIcon, QPixmap, QAction,
+)
 
 BASE_DIR    = Path(__file__).resolve().parent
 CONFIG_FILE = BASE_DIR / "config.json"
 FONTS_DIR   = BASE_DIR / "fonts"
 
-# ---- Greeting logic ----
+# ── Font registry ─────────────────────────────────────────────────────────────
+# Maps family name → file path; populated at startup from the fonts/ folder.
+FONT_FAMILIES: dict[str, str] = {}
+
+def load_fonts() -> None:
+    """Register every .ttf / .otf in fonts/ and populate FONT_FAMILIES."""
+    for path in sorted(FONTS_DIR.glob("*.ttf")) + sorted(FONTS_DIR.glob("*.otf")):
+        fid  = QFontDatabase.addApplicationFont(str(path))
+        fams = QFontDatabase.applicationFontFamilies(fid)
+        for fam in fams:
+            FONT_FAMILIES[fam] = str(path)
+
+# ── Greeting logic ────────────────────────────────────────────────────────────
 def greeting() -> str:
     h = datetime.now().hour
-    if 5 <= h < 12:
-        return "Good Morning"
-    elif 12 <= h < 14:
-        return "Hello"
-    elif 14 <= h < 19:
-        return "Good Afternoon"
-    elif 19 <= h < 22:
-        return "Good Evening"
-    else:
-        return "Good Night"
+    if   5  <= h < 12: return "Good Morning"
+    elif 12 <= h < 14: return "Good Day"
+    elif 14 <= h < 19: return "Good Afternoon"
+    elif 19 <= h < 22: return "Good Evening"
+    else:              return "Good Night"
 
-# ---- Theme palette ----
+# ── Theme palette ─────────────────────────────────────────────────────────────
 THEMES = {
     "dark": {
         "bg_color":     QColor(30, 30, 30),
@@ -45,7 +56,8 @@ THEMES = {
         "entry_border": "#555555",
         "dialog_bg":    "#1e1e1e",
         "label_text":   "#FFFFFF",
-        "gear_icon":    "Gear-icon-white.png",
+        "combo_bg":     "#2a2a2a",
+        "combo_text":   "#FFFFFF",
         "drop_icon":    "light-drop.png",
     },
     "light": {
@@ -61,12 +73,13 @@ THEMES = {
         "entry_border": "#aaaaaa",
         "dialog_bg":    "#f0f0f0",
         "label_text":   "#000000",
-        "gear_icon":    "Gear-icon-black.png",
+        "combo_bg":     "#ffffff",
+        "combo_text":   "#000000",
         "drop_icon":    "dark-drop.png",
     },
 }
 
-# ---- Config helpers ----
+# ── Config helpers ────────────────────────────────────────────────────────────
 def load_config() -> dict:
     with open(CONFIG_FILE, "r") as f:
         return json.load(f)
@@ -75,7 +88,7 @@ def save_config(data: dict):
     with open(CONFIG_FILE, "w") as f:
         json.dump(data, f, indent=4)
 
-# ---- Style helpers ----
+# ── Style helpers ─────────────────────────────────────────────────────────────
 def _icon(filename: str, size: int = 18) -> QIcon:
     pix = QPixmap(str(BASE_DIR / "icons" / filename))
     return QIcon(pix.scaled(size, size,
@@ -103,7 +116,23 @@ def _entry_style(t: dict) -> str:
 
 def _label_style(t: dict, size: int = 12, bold: bool = False) -> str:
     w = "bold" if bold else "normal"
-    return f"color: {t['label_text']}; font-size: {size}px; font-weight: {w}; background: transparent;"
+    return (f"color: {t['label_text']}; font-size: {size}px; "
+            f"font-weight: {w}; background: transparent;")
+
+def _combo_style(t: dict) -> str:
+    return f"""
+        QComboBox {{
+            background-color: {t['combo_bg']}; color: {t['combo_text']};
+            border: 1px solid {t['entry_border']};
+            border-radius: 6px; padding: 3px 6px; font-size: 12px;
+        }}
+        QComboBox QAbstractItemView {{
+            background-color: {t['combo_bg']}; color: {t['combo_text']};
+            selection-background-color: #680000;
+            selection-color: #ffffff;
+        }}
+        QComboBox::drop-down {{ border: none; }}
+    """
 
 def _dialog_style(t: dict) -> str:
     return f"""
@@ -129,10 +158,11 @@ def _dialog_style(t: dict) -> str:
         }}
     """
 
-# ---- Settings dialog ----
+# ── Settings dialog ───────────────────────────────────────────────────────────
 class SettingsDialog(QDialog):
     theme_changed   = pyqtSignal(str)
     opacity_preview = pyqtSignal(float)
+    font_preview    = pyqtSignal(str)   # family name
 
     def __init__(self, parent: "WorkClockWidget"):
         super().__init__(parent, Qt.WindowType.Dialog)
@@ -140,6 +170,7 @@ class SettingsDialog(QDialog):
         self.data           = load_config()
         self._theme         = self.data.get("theme", "dark")
         self._saved_opacity = float(self.data.get("opacity", 0.85))
+        self._saved_font    = self.data.get("font", "UnifrakturCook")
 
         self.setWindowTitle("Settings")
         self.setFixedWidth(310)
@@ -148,7 +179,7 @@ class SettingsDialog(QDialog):
         self._build_ui()
         self._apply_theme()
 
-    # ---- Build ----
+    # ── Build ─────────────────────────────────────────────────────────────────
     def _build_ui(self):
         g = QGridLayout(self)
         g.setSpacing(6)
@@ -158,13 +189,15 @@ class SettingsDialog(QDialog):
         g.setColumnStretch(2, 1)
         g.setColumnStretch(3, 1)
 
+        row = 0
+
         # Name
         self.name_lbl   = QLabel("Name:")
         self.name_entry = QLineEdit()
         self.name_entry.setPlaceholderText(self.data["user_name"])
         self.name_entry.setFixedHeight(30)
-        g.addWidget(self.name_lbl,   0, 0, 1, 4)
-        g.addWidget(self.name_entry, 1, 0, 1, 4)
+        g.addWidget(self.name_lbl,   row, 0, 1, 4); row += 1
+        g.addWidget(self.name_entry, row, 0, 1, 4); row += 1
 
         # Work hours
         self.hours_lbl   = QLabel("Daily work hours:")
@@ -175,9 +208,9 @@ class SettingsDialog(QDialog):
         self.fix_cbx = QCheckBox("Use fixed number of hours")
         self.fix_cbx.setChecked(self.data.get("time_mode", 0) == 1)
         self.fix_cbx.stateChanged.connect(self._cbx_callback)
-        g.addWidget(self.hours_lbl,   2, 0, 1, 4)
-        g.addWidget(self.hours_entry, 3, 0)
-        g.addWidget(self.fix_cbx,     3, 1, 1, 3)
+        g.addWidget(self.hours_lbl,   row, 0, 1, 4); row += 1
+        g.addWidget(self.hours_entry, row, 0)
+        g.addWidget(self.fix_cbx,     row, 1, 1, 3); row += 1
 
         # Start time
         sh, sm = self.data["start_time"].split(":")
@@ -185,10 +218,10 @@ class SettingsDialog(QDialog):
         self.start_h   = QLineEdit(); self.start_h.setPlaceholderText(sh); self.start_h.setFixedWidth(50); self.start_h.setFixedHeight(30)
         self.colon1    = QLabel(":"); self.colon1.setAlignment(Qt.AlignmentFlag.AlignCenter); self.colon1.setFixedWidth(12)
         self.start_m   = QLineEdit(); self.start_m.setPlaceholderText(sm); self.start_m.setFixedWidth(50); self.start_m.setFixedHeight(30)
-        g.addWidget(self.start_lbl, 4, 0, 1, 4)
-        g.addWidget(self.start_h,   5, 0)
-        g.addWidget(self.colon1,    5, 1)
-        g.addWidget(self.start_m,   5, 2)
+        g.addWidget(self.start_lbl, row, 0, 1, 4); row += 1
+        g.addWidget(self.start_h,   row, 0)
+        g.addWidget(self.colon1,    row, 1)
+        g.addWidget(self.start_m,   row, 2); row += 1
 
         # End time
         eh, em = self.data["end_time"].split(":")
@@ -196,12 +229,11 @@ class SettingsDialog(QDialog):
         self.end_h   = QLineEdit(); self.end_h.setPlaceholderText(eh); self.end_h.setFixedWidth(50); self.end_h.setFixedHeight(30)
         self.colon2  = QLabel(":"); self.colon2.setAlignment(Qt.AlignmentFlag.AlignCenter); self.colon2.setFixedWidth(12)
         self.end_m   = QLineEdit(); self.end_m.setPlaceholderText(em); self.end_m.setFixedWidth(50); self.end_m.setFixedHeight(30)
-        g.addWidget(self.end_lbl, 6, 0, 1, 4)
-        g.addWidget(self.end_h,   7, 0)
-        g.addWidget(self.colon2,  7, 1)
-        g.addWidget(self.end_m,   7, 2)
+        g.addWidget(self.end_lbl, row, 0, 1, 4); row += 1
+        g.addWidget(self.end_h,   row, 0)
+        g.addWidget(self.colon2,  row, 1)
+        g.addWidget(self.end_m,   row, 2); row += 1
 
-        # Disable end time fields if fixed-hours mode is already on
         self._set_end_time_enabled(not self.fix_cbx.isChecked())
 
         # Theme toggle
@@ -211,8 +243,22 @@ class SettingsDialog(QDialog):
         self.drop_btn.setToolTip("Toggle dark / light theme")
         self.drop_btn.setStyleSheet("QPushButton { background: transparent; border: none; }")
         self.drop_btn.clicked.connect(self._toggle_theme)
-        g.addWidget(self.theme_lbl, 8, 0, 1, 2)
-        g.addWidget(self.drop_btn,  8, 3, Qt.AlignmentFlag.AlignRight)
+        g.addWidget(self.theme_lbl, row, 0, 1, 2)
+        g.addWidget(self.drop_btn,  row, 3, Qt.AlignmentFlag.AlignRight); row += 1
+
+        # Font selector
+        self.font_lbl   = QLabel("Font:")
+        self.font_combo = QComboBox()
+        self.font_combo.setFixedHeight(30)
+        for family in sorted(FONT_FAMILIES.keys()):
+            self.font_combo.addItem(family)
+        current_font = self.data.get("font", "UnifrakturCook")
+        idx = self.font_combo.findText(current_font)
+        if idx >= 0:
+            self.font_combo.setCurrentIndex(idx)
+        self.font_combo.currentTextChanged.connect(self._on_font_change)
+        g.addWidget(self.font_lbl,   row, 0, 1, 4); row += 1
+        g.addWidget(self.font_combo, row, 0, 1, 4); row += 1
 
         # Transparency
         self.transp_lbl     = QLabel("Transparency:")
@@ -222,31 +268,36 @@ class SettingsDialog(QDialog):
         self.transp_slider.setRange(20, 100)
         self.transp_slider.setValue(int(self._saved_opacity * 100))
         self.transp_slider.valueChanged.connect(self._on_transp_change)
-        g.addWidget(self.transp_lbl,     9, 0, 1, 2)
-        g.addWidget(self.transp_val_lbl, 9, 2, 1, 2)
-        g.addWidget(self.transp_slider, 10, 0, 1, 4)
+        g.addWidget(self.transp_lbl,     row, 0, 1, 2)
+        g.addWidget(self.transp_val_lbl, row, 2, 1, 2); row += 1
+        g.addWidget(self.transp_slider,  row, 0, 1, 4); row += 1
 
-        # Ok / Cancel
+        # Ok / Cancel — equal width via a stretch HBox spanning all columns
         self.ok_btn     = QPushButton("Ok")
         self.cancel_btn = QPushButton("Cancel")
         self.ok_btn.setFixedHeight(30)
         self.cancel_btn.setFixedHeight(30)
         self.ok_btn.clicked.connect(self._ok_callback)
         self.cancel_btn.clicked.connect(self._cancel_callback)
-        g.addWidget(self.ok_btn,     11, 2)
-        g.addWidget(self.cancel_btn, 11, 3)
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(self.ok_btn,     stretch=1)
+        btn_row.addWidget(self.cancel_btn, stretch=1)
+        g.addLayout(btn_row, row, 0, 1, 4)
 
-    # ---- Theme ----
+    # ── Theme ─────────────────────────────────────────────────────────────────
     def _apply_theme(self):
         t = THEMES[self._theme]
         self.setStyleSheet(_dialog_style(t))
         for lbl in (self.name_lbl, self.hours_lbl, self.start_lbl, self.end_lbl,
-                    self.theme_lbl, self.transp_lbl, self.transp_val_lbl,
+                    self.theme_lbl, self.font_lbl,
+                    self.transp_lbl, self.transp_val_lbl,
                     self.colon1, self.colon2):
             lbl.setStyleSheet(_label_style(t))
         for entry in (self.name_entry, self.hours_entry,
                       self.start_h, self.start_m, self.end_h, self.end_m):
             entry.setStyleSheet(_entry_style(t))
+        self.font_combo.setStyleSheet(_combo_style(t))
         self.ok_btn.setStyleSheet(_btn_style(t))
         self.cancel_btn.setStyleSheet(_btn_style(t))
         self.drop_btn.setStyleSheet("QPushButton { background: transparent; border: none; }")
@@ -257,22 +308,25 @@ class SettingsDialog(QDialog):
         self._apply_theme()
         self.theme_changed.emit(self._theme)
 
-    # ---- Transparency ----
+    # ── Font ─────────────────────────────────────────────────────────────────
+    def _on_font_change(self, family: str):
+        self.font_preview.emit(family)
+
+    # ── Transparency ─────────────────────────────────────────────────────────
     def _on_transp_change(self, value: int):
         self.transp_val_lbl.setText(f"{value}%")
         self.opacity_preview.emit(value / 100)
 
-    # ---- Checkbox ----
+    # ── Checkbox ─────────────────────────────────────────────────────────────
     def _set_end_time_enabled(self, enabled: bool):
         self.end_h.setEnabled(enabled)
         self.end_m.setEnabled(enabled)
         self.end_lbl.setEnabled(enabled)
 
     def _cbx_callback(self, state: int):
-        # Checked = fixed hours → disable end time fields
         self._set_end_time_enabled(state == 0)
 
-    # ---- Ok / Cancel ----
+    # ── Ok / Cancel ───────────────────────────────────────────────────────────
     def _ok_callback(self):
         name      = self.name_entry.text().strip()
         hours_txt = self.hours_entry.text().strip()
@@ -285,24 +339,19 @@ class SettingsDialog(QDialog):
         if name:
             self.data["user_name"] = name
 
-        # Resolve work_hours
         new_hours = int(hours_txt) if (hours_txt and hours_txt.isdigit()) else int(self.data["work_hours"])
         self.data["work_hours"] = new_hours
 
-        # Resolve start time
         try:
             start_dt = datetime.strptime(f"{start_h}:{start_m}", "%H:%M")
             self.data["start_time"] = start_dt.strftime("%H:%M")
         except ValueError:
             start_dt = datetime.strptime(self.data["start_time"], "%H:%M")
 
-        # Resolve end time based on mode
         if use_fixed:
-            # Compute end time from start + hours
             end_dt = start_dt + timedelta(hours=new_hours)
             self.data["end_time"] = end_dt.strftime("%H:%M")
         else:
-            # Use the manually specified end time
             try:
                 end_dt = datetime.strptime(f"{end_h_v}:{end_m_v}", "%H:%M")
                 self.data["end_time"] = end_dt.strftime("%H:%M")
@@ -312,16 +361,19 @@ class SettingsDialog(QDialog):
         self.data["time_mode"] = 1 if use_fixed else 0
         self.data["opacity"]   = self.transp_slider.value() / 100
         self.data["theme"]     = self._theme
+        self.data["font"]      = self.font_combo.currentText()
         save_config(self.data)
         self.accept()
 
     def _cancel_callback(self):
+        # Restore previewed opacity, theme and font
         self.opacity_preview.emit(self._saved_opacity)
         self.theme_changed.emit(self.data.get("theme", "dark"))
+        self.font_preview.emit(self._saved_font)
         self.reject()
 
 
-# ---- Main widget ----
+# ── Main widget ───────────────────────────────────────────────────────────────
 class WorkClockWidget(QWidget):
     def __init__(self):
         super().__init__()
@@ -331,62 +383,46 @@ class WorkClockWidget(QWidget):
             Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-        self.setFixedSize(300, 210)
+        self.setFixedSize(300, 185)
 
-        # Load bundled font
-        font_path = str(FONTS_DIR / "UnifrakturMaguntia-Book.ttf")
-        fid = QFontDatabase.addApplicationFont(font_path)
-        families = QFontDatabase.applicationFontFamilies(fid)
-        self._gothic_font = families[0] if families else "serif"
+        # Right-click context menu
+        self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.customContextMenuRequested.connect(self._show_context_menu)
 
         self.data        = load_config()
         self._theme_name = self.data.get("theme", "dark")
         self._opacity    = float(self.data.get("opacity", 0.85))
+        self._font_name  = self.data.get("font", "UnifrakturCook")
         self._drag_pos   = QPoint()
 
-        # Use stored start time directly — no popup
         self.start_time = datetime.strptime(self.data["start_time"], "%H:%M")
         self.end_time   = datetime.strptime(self.data["end_time"],   "%H:%M")
 
         self._build_ui()
         self._apply_theme(self._theme_name)
 
-        # 1-second tick; also refresh greeting every minute
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
         self._timer.start(1000)
         self._last_greeting_hour = -1
         self._tick()
 
-    # ---- UI ----
+    # ── UI ────────────────────────────────────────────────────────────────────
     def _build_ui(self):
         outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 10, 12, 12)
+        outer.setContentsMargins(12, 8, 12, 12)
         outer.setSpacing(2)
-
-        top = QHBoxLayout()
-        self.gear_btn = QPushButton()
-        self.gear_btn.setFixedSize(28, 28)
-        self.gear_btn.setToolTip("Settings")
-        self.gear_btn.setStyleSheet("QPushButton { background: transparent; border: none; }")
-        self.gear_btn.clicked.connect(self._open_settings)
-        top.addWidget(self.gear_btn)
-        top.addStretch()
-        outer.addLayout(top)
 
         self.clock_lbl = QLabel("00:00")
         self.clock_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.clock_lbl.setFont(QFont(self._gothic_font, 58))
         outer.addWidget(self.clock_lbl)
 
         self.greet_lbl = QLabel("")
         self.greet_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.greet_lbl.setFont(QFont(self._gothic_font, 20))
         outer.addWidget(self.greet_lbl)
 
         self.progress_lbl = QLabel("0%")
         self.progress_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.progress_lbl.setFont(QFont(self._gothic_font, 20))
         outer.addWidget(self.progress_lbl)
 
         self.progress_bar = QProgressBar()
@@ -396,7 +432,17 @@ class WorkClockWidget(QWidget):
         self.progress_bar.setFixedHeight(14)
         outer.addWidget(self.progress_bar)
 
-    # ---- Theme ----
+        self._refresh_fonts()
+
+    def _refresh_fonts(self):
+        """Apply the current font family to all text labels."""
+        f_large  = QFont(self._font_name, 58)
+        f_medium = QFont(self._font_name, 20)
+        self.clock_lbl.setFont(f_large)
+        self.greet_lbl.setFont(f_medium)
+        self.progress_lbl.setFont(f_medium)
+
+    # ── Theme ─────────────────────────────────────────────────────────────────
     def _apply_theme(self, theme_name: str):
         self._theme_name = theme_name
         t = THEMES[theme_name]
@@ -404,17 +450,45 @@ class WorkClockWidget(QWidget):
         self.greet_lbl.setStyleSheet(   f"color: {t['text']};    background: transparent;")
         self.progress_lbl.setStyleSheet(f"color: {t['subtext']}; background: transparent;")
         self.progress_bar.setStyleSheet(f"""
-            QProgressBar           {{ background-color: {t['progress_bg']}; border-radius: 7px; }}
-            QProgressBar::chunk    {{ background-color: {t['progress_fg']}; border-radius: 7px; }}
+            QProgressBar        {{ background-color: {t['progress_bg']}; border-radius: 7px; }}
+            QProgressBar::chunk {{ background-color: {t['progress_fg']}; border-radius: 7px; }}
         """)
-        self.gear_btn.setIcon(_icon(t["gear_icon"], 18))
         self.update()
 
     def set_opacity(self, value: float):
         self._opacity = value
         self.update()
 
-    # ---- Paint translucent rounded background ----
+    def set_font(self, family: str):
+        self._font_name = family
+        self._refresh_fonts()
+
+    # ── Context menu ──────────────────────────────────────────────────────────
+    def _show_context_menu(self, pos: QPoint):
+        t = THEMES[self._theme_name]
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {t['dialog_bg']};
+                color: {t['label_text']};
+                border: 1px solid {t['entry_border']};
+                border-radius: 6px;
+                padding: 4px;
+                font-size: 12px;
+            }}
+            QMenu::item {{ padding: 6px 20px; border-radius: 4px; }}
+            QMenu::item:selected {{ background-color: #680000; color: #ffffff; }}
+        """)
+        settings_action = QAction("⚙  Settings", self)
+        close_action    = QAction("✕  Close",    self)
+        settings_action.triggered.connect(self._open_settings)
+        close_action.triggered.connect(QApplication.instance().quit)
+        menu.addAction(settings_action)
+        menu.addSeparator()
+        menu.addAction(close_action)
+        menu.exec(self.mapToGlobal(pos))
+
+    # ── Paint translucent rounded background ──────────────────────────────────
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -424,7 +498,7 @@ class WorkClockWidget(QWidget):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawRoundedRect(self.rect(), 14, 14)
 
-    # ---- Drag ----
+    # ── Drag ─────────────────────────────────────────────────────────────────
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
@@ -433,46 +507,46 @@ class WorkClockWidget(QWidget):
         if event.buttons() & Qt.MouseButton.LeftButton:
             self.move(event.globalPosition().toPoint() - self._drag_pos)
 
-    # ---- Tick ----
+    # ── Tick ─────────────────────────────────────────────────────────────────
     def _tick(self):
         now = datetime.now()
         self.clock_lbl.setText(now.strftime("%H:%M"))
 
-        # Update greeting when the hour changes
         if now.hour != self._last_greeting_hour:
             self._last_greeting_hour = now.hour
             self.greet_lbl.setText(f"{greeting()}, {self.data['user_name']}")
 
-        # Progress: minutes elapsed since start_time vs. total work minutes
-        start_minutes = self.start_time.hour * 60 + self.start_time.minute
-        end_minutes   = self.end_time.hour   * 60 + self.end_time.minute
-        now_minutes   = now.hour * 60 + now.minute
-        total    = max(end_minutes - start_minutes, 1)
-        elapsed  = now_minutes - start_minutes
-        progress = max(0, min(100, int(elapsed * 100 / total)))
-
+        start_min = self.start_time.hour * 60 + self.start_time.minute
+        end_min   = self.end_time.hour   * 60 + self.end_time.minute
+        now_min   = now.hour * 60 + now.minute
+        total     = max(end_min - start_min, 1)
+        progress  = max(0, min(100, int((now_min - start_min) * 100 / total)))
         self.progress_lbl.setText(f"{progress}%")
         self.progress_bar.setValue(progress)
 
-    # ---- Settings ----
+    # ── Settings ─────────────────────────────────────────────────────────────
     def _open_settings(self):
         dlg = SettingsDialog(self)
         dlg.theme_changed.connect(self._apply_theme)
         dlg.opacity_preview.connect(self.set_opacity)
+        dlg.font_preview.connect(self.set_font)
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.data        = load_config()
             self._theme_name = self.data.get("theme", "dark")
             self._opacity    = float(self.data.get("opacity", 0.85))
+            self._font_name  = self.data.get("font", "UnifrakturCook")
             self.start_time  = datetime.strptime(self.data["start_time"], "%H:%M")
             self.end_time    = datetime.strptime(self.data["end_time"],   "%H:%M")
-            self._last_greeting_hour = -1   # force greeting refresh
+            self._last_greeting_hour = -1
             self._apply_theme(self._theme_name)
             self.set_opacity(self._opacity)
+            self.set_font(self._font_name)
             self._tick()
 
 
-# ---- Entry point ----
+# ── Entry point ───────────────────────────────────────────────────────────────
 qapp = QApplication(sys.argv)
+load_fonts()          # register all fonts before any widget is created
 widget = WorkClockWidget()
 widget.show()
 sys.exit(qapp.exec())
