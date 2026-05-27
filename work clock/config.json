@@ -2,7 +2,9 @@
     "user_name": "Human",
     "work_hours": 7,
     "last_run_date": "08.05.2026",
-    "start_time": "06:00",
-    "end_time": "14:30",
-    "time_mode": 0
+    "start_time": "07:00",
+    "end_time": "14:00",
+    "time_mode": 0,
+    "opacity": 0.85,
+    "theme": "dark"
 }
