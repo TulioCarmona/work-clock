@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 REQUIRED = [
-    "PyQT6",
+    "PyQt6",
     "Pillow",
 ]
 
