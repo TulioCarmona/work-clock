@@ -240,15 +240,22 @@ class SettingsDialog(QDialog):
 
         work_days = self.data.get("work_days", [1, 2, 3, 4, 5])
         self.day_checks: list[QCheckBox] = []
-        days_row = QHBoxLayout()
-        days_row.setSpacing(4)
-        for i, label in enumerate(DAYS_LABELS):
-            cb = QCheckBox(label)
-            cb.setChecked((i + 1) in work_days)
+        days_grid = QGridLayout()
+        days_grid.setHorizontalSpacing(0)
+        days_grid.setVerticalSpacing(14)
+        for col in range(4):
+            days_grid.setColumnStretch(col, 1)
+        for col in range(4):                          # Mon Tue Wed Thu
+            cb = QCheckBox(DAYS_LABELS[col])
+            cb.setChecked((col + 1) in work_days)
             self.day_checks.append(cb)
-            days_row.addWidget(cb)
-        days_row.addStretch()
-        g.addLayout(days_row, row, 0, 1, 4); row += 1
+            days_grid.addWidget(cb, 0, col)
+        for col in range(3):                          # Fri Sat Sun
+            cb = QCheckBox(DAYS_LABELS[4 + col])
+            cb.setChecked((5 + col) in work_days)
+            self.day_checks.append(cb)
+            days_grid.addWidget(cb, 1, col)
+        g.addLayout(days_grid, row, 0, 1, 4); row += 1
 
         # Theme toggle
         self.theme_lbl = QLabel("Theme:")
