@@ -19,6 +19,26 @@ LIBS_DIR.mkdir(exist_ok=True)
 
 print(f"Installing packages into: {LIBS_DIR}\n")
 
+def ensure_pip():
+    # Ensure pip is available
+    print("Checking for pip...")
+    result = subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True, text=True)
+
+    if result.returncode == 0:
+        print("pip already intalled\n")
+        return
+    
+    print("pip not found. Intalling using ensurepip...\n")
+    result = subprocess.run([sys.executable, "-m", "ensurepip", "--upgrade"], capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print(f" Error installing pip:\n{result.stderr}")
+        sys.exit(1)
+
+    print("pip installed successfully\n")
+
+ensure_pip()
+
 for package in REQUIRED:
     print(f"  Installing {package}...")
     result = subprocess.run(
